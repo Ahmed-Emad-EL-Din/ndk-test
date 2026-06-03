@@ -11,6 +11,10 @@ jobs:
   build:
     name: Build Android NDK App
     runs-on: ubuntu-latest
+    env:
+      STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+      KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+      RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
 
     steps:
       - name: Checkout Repository
@@ -48,7 +52,7 @@ jobs:
 
       # OPTIONAL: Release Build Job (Triggers only if release keystore secrets are configured on GitHub)
       - name: Build Release APK
-        if: "${{ secrets.STORE_PASSWORD != '' && secrets.KEY_PASSWORD != '' && secrets.RELEASE_KEYSTORE_BASE64 != '' }}"
+        if: "${{ env.STORE_PASSWORD != '' && env.KEY_PASSWORD != '' && env.RELEASE_KEYSTORE_BASE64 != '' }}"
         env:
           STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
@@ -59,7 +63,7 @@ jobs:
           ./gradlew assembleRelease --no-daemon
 
       - name: Upload Release APK Artifact
-        if: "${{ secrets.STORE_PASSWORD != '' && secrets.KEY_PASSWORD != '' && secrets.RELEASE_KEYSTORE_BASE64 != '' }}"
+        if: "${{ env.STORE_PASSWORD != '' && env.KEY_PASSWORD != '' && env.RELEASE_KEYSTORE_BASE64 != '' }}"
         uses: actions/upload-artifact@v4
         with:
           name: ndk-3d-cube-release-apk
