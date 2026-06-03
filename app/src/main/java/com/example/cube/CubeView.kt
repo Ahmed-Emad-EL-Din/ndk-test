@@ -47,6 +47,9 @@ class CustomGLSurfaceView(
         // Request an OpenGL ES 3.0 compatible context
         setEGLContextClientVersion(3)
         
+        // Explicitly choose an EGL config with 8-bit channels and a 16-bit depth buffer for compatibility
+        setEGLConfigChooser(8, 8, 8, 8, 16, 0)
+        
         // Preserve context when paused (prevents shader re-creation overhead on rotate/switch)
         preserveEGLContextOnPause = true
 

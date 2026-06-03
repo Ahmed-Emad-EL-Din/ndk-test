@@ -321,6 +321,16 @@ GLuint loadShader(GLenum type, const char* shaderSrc) {
 extern "C" {
 
 JNIEXPORT void JNICALL
+Java_com_example_cube_NativeCubeLib_nativeOnSurfaceCreated(JNIEnv* env, jobject obj) {
+    LOGI("onSurfaceCreated: resetting GLES handles");
+    gState.programObject = 0;
+    gState.vao = 0;
+    gState.vboPosition = 0;
+    gState.vboColor = 0;
+    gState.iboIndex = 0;
+}
+
+JNIEXPORT void JNICALL
 Java_com_example_cube_NativeCubeLib_nativeInit(JNIEnv* env, jobject obj, jint width, jint height) {
     LOGI("init width: %d, height: %d", width, height);
     gState.width = width;

@@ -17,6 +17,12 @@ object NativeCubeLib {
         }
     }
 
+    fun onSurfaceCreated() {
+        if (isLibraryLoaded) {
+            nativeOnSurfaceCreated()
+        }
+    }
+
     fun init(width: Int, height: Int) {
         if (isLibraryLoaded) {
             nativeInit(width, height)
@@ -62,6 +68,7 @@ object NativeCubeLib {
     }
 
     // Underlying Native external declarations
+    private external fun nativeOnSurfaceCreated()
     private external fun nativeInit(width: Int, height: Int)
     private external fun nativeStep(): Float
     private external fun nativeSetRotationSpeed(speedX: Float, speedY: Float, speedZ: Float)

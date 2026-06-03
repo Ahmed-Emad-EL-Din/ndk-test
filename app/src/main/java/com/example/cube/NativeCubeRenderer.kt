@@ -12,7 +12,7 @@ class NativeCubeRenderer(
 ) : GLSurfaceView.Renderer {
 
     override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
-        // OpenGL ES context is ready; initialization steps are driven via surface size changes.
+        NativeCubeLib.onSurfaceCreated()
     }
 
     override fun onSurfaceChanged(gl: GL10?, width: Int, height: Int) {
