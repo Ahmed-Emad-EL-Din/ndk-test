@@ -44,11 +44,30 @@ class CustomGLSurfaceView(
 ) : GLSurfaceView(context) {
 
     init {
-        // Request an OpenGL ES 3.0 compatible context
-        setEGLContextClientVersion(3)
+        try {
+            // Try to request an OpenGL ES 3.0 context
+            setEGLContextClientVersion(3)
+        } catch (e: Exception) {
+            System.err.println("GLES 3 Context not supported, trying fallback to ES 2: " + e.message)
+            try {
+                setEGLContextClientVersion(2)
+            } catch (e2: Exception) {
+                System.err.println("GLES 2 Fallback context also failed: " + e2.message)
+            }
+        }
         
-        // Explicitly choose an EGL config with 8-bit channels and a 16-bit depth buffer for compatibility
-        setEGLConfigChooser(8, 8, 8, 8, 16, 0)
+        try {
+            // Explicitly choose an EGL config with 8-bit channels and a 16-bit depth buffer for compatibility
+            setEGLConfigChooser(8, 8, 8, 8, 16, 0)
+        } catch (e: Exception) {
+            System.err.println("Explicit EGL config chooser failed, falling back to auto configuration: " + e.message)
+            try {
+                // Fallback: request standard configuration supporting depth-testing
+                setEGLConfigChooser(true)
+            } catch (e2: Exception) {
+                System.err.println("EGLConfigChooser fallback also failed: " + e2.message)
+            }
+        }
         
         // Preserve context when paused (prevents shader re-creation overhead on rotate/switch)
         preserveEGLContextOnPause = true

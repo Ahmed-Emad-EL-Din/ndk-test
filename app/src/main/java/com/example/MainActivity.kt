@@ -34,20 +34,169 @@ import com.example.ui.theme.MyApplicationTheme
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // Setup persistent crash log/diagnostics system
+        val sharedPrefs = getSharedPreferences("engine_debug", MODE_PRIVATE)
+        val lastCrashTrace = sharedPrefs.getString("last_crash_trace", null)
+        
+        val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+            val sw = java.io.StringWriter()
+            val pw = java.io.PrintWriter(sw)
+            throwable.printStackTrace(pw)
+            val fullTrace = sw.toString()
+            
+            sharedPrefs.edit()
+                .putString("last_crash_trace", "Thread: ${thread.name}\nException Message: ${throwable.message}\n\n$fullTrace")
+                .commit()
+            
+            defaultHandler?.uncaughtException(thread, throwable)
+        }
+
         // Enable edge-to-edge drawing
         enableEdgeToEdge()
         setContent {
             MyApplicationTheme(darkTheme = true) {
-                Scaffold(
-                    modifier = Modifier.fillMaxSize(),
-                    containerColor = Color(0xFF0D0D12) // Deep space obsidian background
-                ) { innerPadding ->
-                    CubeDashboardScreen(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(innerPadding)
+                var crashTrace by remember { mutableStateOf(lastCrashTrace) }
+                
+                if (crashTrace != null) {
+                    DiagnosticScreen(
+                        trace = crashTrace!!,
+                        onClearAndRestart = {
+                            sharedPrefs.edit().remove("last_crash_trace").commit()
+                            crashTrace = null
+                        },
+                        context = this
                     )
+                } else {
+                    Scaffold(
+                        modifier = Modifier.fillMaxSize(),
+                        containerColor = Color(0xFF0D0D12) // Deep space obsidian background
+                    ) { innerPadding ->
+                        CubeDashboardScreen(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(innerPadding)
+                        )
+                    }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+fun DiagnosticScreen(
+    trace: String,
+    onClearAndRestart: () -> Unit,
+    context: android.content.Context
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF0F0A0A)) // Deep warning red-black tint
+            .padding(24.dp)
+            .statusBarsPadding()
+            .navigationBarsPadding(),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        // Red Pulsing Hazard/Warning Symbol
+        Box(
+            modifier = Modifier
+                .size(64.dp)
+                .clip(CircleShape)
+                .background(Color(0xFFE74C3C).copy(alpha = 0.15f))
+                .border(2.dp, Color(0xFFE74C3C), CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "⚠️",
+                style = androidx.compose.ui.text.TextStyle(fontSize = 32.sp)
+            )
+        }
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        Text(
+            text = "ENGINE DIAGNOSTICS",
+            style = MaterialTheme.typography.titleLarge.copy(
+                fontWeight = FontWeight.ExtraBold,
+                letterSpacing = 1.5.sp
+            ),
+            color = Color(0xFFE74C3C)
+        )
+        
+        Spacer(modifier = Modifier.height(8.dp))
+        
+        Text(
+            text = "An exception on the OpenGL or JNI layer was safely intercepted. Please review the trace log below:",
+            textAlign = TextAlign.Center,
+            style = MaterialTheme.typography.bodyMedium,
+            color = Color(0xFFB3A2A2),
+            modifier = Modifier.padding(horizontal = 12.dp)
+        )
+        
+        Spacer(modifier = Modifier.height(20.dp))
+        
+        // Log trace console
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(Color(0xFF050303))
+                .border(1.dp, Color(0xFF331C1C), RoundedCornerShape(12.dp))
+                .padding(12.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+            ) {
+                Text(
+                    text = trace,
+                    fontFamily = FontFamily.Monospace,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFFFFA6A6)
+                )
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(20.dp))
+        
+        // Actions
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Button(
+                onClick = {
+                    val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.Context
+                        ?: return@Button
+                    try {
+                        val manager = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                        val clip = android.content.ClipData.newPlainText("Crash Trace", trace)
+                        manager.setPrimaryClip(clip)
+                        android.widget.Toast.makeText(context, "Copied log to clipboard!", android.widget.Toast.LENGTH_SHORT).show()
+                    } catch (e: Exception) {
+                        // ignore
+                    }
+                },
+                modifier = Modifier.weight(1f),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F1212), contentColor = Color(0xFFFFA6A6)),
+                shape = RoundedCornerShape(10.dp)
+            ) {
+                Text("COPY TRACE", fontWeight = FontWeight.Bold)
+            }
+            
+            Button(
+                onClick = onClearAndRestart,
+                modifier = Modifier.weight(1.2f),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE74C3C), contentColor = Color.White),
+                shape = RoundedCornerShape(10.dp)
+            ) {
+                Text("CLEAR & RELAUNCH", fontWeight = FontWeight.ExtraBold)
             }
         }
     }
@@ -146,7 +295,9 @@ fun CubeDashboardScreen(modifier: Modifier = Modifier) {
             CubeView(
                 modifier = Modifier.fillMaxSize(),
                 onFpsUpdated = { fpsVal ->
-                    currentFps = fpsVal
+                    android.os.Handler(android.os.Looper.getMainLooper()).post {
+                        currentFps = fpsVal
+                    }
                 }
             )
 
